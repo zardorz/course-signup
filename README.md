@@ -10,7 +10,7 @@ Para este projeto está sendo considerado o uso do Kinesis para mensageria, CQRS
 
 A quantidade de cursos, alunos e a relação dos cursos estão armazaenados na tabela cfg-cursos do BD. Como a inscrição é feita de forma paralela via Threads o serviço de Sign-in controla a quantidade de alunos. 
 
-O conceito atual considera uma thread por curso processando todos os alunos daquele curso. Outra opção seria paralelizar a inscrição, independente do curso, onde o controle ficaria na "Service-Filas" que recupera a quantidade correta de alunos da turma do kinesis (por ordem de data de solicitação por exemplo) deprezados (e notificadondo) os demais.
+O conceito atual considera uma thread por curso processando todos os alunos daquele curso. Outra opção seria paralelizar a inscrição, independente do curso, onde o controle ficaria na "Service-Filas" que recupera a quantidade correta de alunos da turma do kinesis (por ordem de data de solicitação por exemplo) deprezandos e notificando os demais.
 
 Sempre que um aluno é inscrito, um evento é gerado (Services ORM) de forma a gravar um totalizador de registros. Este totalizador contempla:
 - Quantidade de alunos do curso
