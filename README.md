@@ -1,32 +1,35 @@
 # course-signup
 
 Projeto Conceito
-Este repo contém, nesta fase, apenas a estrutura conceitual e ainda não executa nenhuma ação ao ser executado. Ele está sendo utilizado como base para um projeto pessoal de cursos que estou construindo com API en c# Core e front em ReactJS ( no momento, fora do escopo). 
 
-O objetivo principal é efetuar o registro de alunos em cursos utilizando o modelo de mensageria. Tanto o processamento das mensagens qtos as notificações são processaçdos pelo conceito de CQRS.
+Este repo contém, nesta fase, apenas a estrutura conceitual e ainda não executa nenhuma ação ao ser executado. Ele está sendo utilizado como base para um projeto pessoal de cursos que estou construindo com API em C# Core e front em ReactJS ( no momento, fora do escopo). 
 
-Para este poehto está sendo considerado o uso do Kinesis para mensageria, CQRS para o disparos dos processos assincronos, e o fluxo de notificação via Fire e Forget onde não está sendo analziado o retorno do servidor SMTP (envio, validade do email, etc)
+O objetivo principal é efetuar o registro de alunos em cursos utilizando o modelo de mensageria. Tanto o processamento das mensagens quanto as notificações são processados pelo conceito de CQRS.
 
-A quantidade de cursos alunos e os cursos estão armazaenados na tabela cfg-cursos do BD e quando a turma estiver fechada (analitics_course) a incrição é rejeitada. Como a inscrição é feita de forma paralela via Threads é o serviço de Sign-in que controla a qtd de alunos. Este controle é  por um select na tabela de estatísticas do curso. Um adendo...O conceito autal considera uma thread por curso. Caso as threads seja independentes, ou seja paralelizados, o controle pode ficar na Service-Filas, que é sincrona, recuperando apenas a quantidade correta de alunos da turma do kinesis (por ordem de data de solicitação por exemplo). Os demais são deprezados (e notificados). 
+Para este projeto está sendo considerado o uso do Kinesis para mensageria, CQRS para o disparos dos processos assincronos, e o fluxo de notificação via "Fire e Forget" onde não está sendo analizados o retorno do servidor SMTP (envio, validade do email, etc)
+
+A quantidade de cursos, alunos e a relação dos cursos estão armazaenados na tabela cfg-cursos do BD. Como a inscrição é feita de forma paralela via Threads o serviço de Sign-in controla a quantidade de alunos. 
+
+O conceito atual considera uma thread por curso processando todos os alunos daquele curso. Outra opção seria paralelizar a inscrição, independente do curso, onde o controle ficaria na "Service-Filas" que recupera a quantidade correta de alunos da turma do kinesis (por ordem de data de solicitação por exemplo) deprezados (e notificadondo) os demais.
 
 Sempre que um aluno é inscrito, um evento é gerado (Services ORM) de forma a gravar um totalizador de registros. Este totalizador contempla:
 - Quantidade de alunos do curso
 - Metricas por curso (idade minima, idade máxima, média de idades)
 - metricas do campus (idade minima, idade máxima, média de idades)
 
-O presente modelo não contempla demais regras como idade minima, pagamento de taxas, entrega de documentos, email valido entre outras que existiriam em um projeto real.
+O presente modelo não contempla demais regras como idade minima, pagamento de taxas, entrega de documentos, email válido entre outras.
 
 
 # EndPoins
 ## Registro
 ![Alt text](/course-signup-api/img/endpoints.JPG?raw=true "endpoints")
-O EndPoint (EP) de registro efetua o agendamento da solicitação do aluno em um stream kinesis (mensageria). Neste conceito utilizando o elasticseach para gerenciar a carga cfe o numero de requisições aumente de forma exponencial.
+O EndPoint (EP) de registro efetua o agendamento da solicitação do aluno em um stream kinesis (mensageria). Neste conceito utilizando o elasticseach para gerenciar a carga cfe o número de requisições aumente de forma exponencial.
 
-A API tem como entrada seguintes dados:
+A API tem como entradas:
 - Nome
 - Data de nascimento
 - ID do Curso
-- email
+- Email
 
 Após ser incluido na fila é enviado um comando para que o serviço de notificação envie um email ao aluno informando sobre os proximos passos. Estes dados tambem pode ser exibidos no front (fora do escopo atual).
 
@@ -39,14 +42,16 @@ O EP de consulta retorna as metricas de alunos  (idade minima, idade máxima, m�
 - Data da incsrição
 - Etc
 
+Este retorno pode ser feito pro "Dynamic Querys" (DQ), GraphQL ou DTO's. Nesta versão será implementado o modelo de DQ.
+
 # Processos
 ## Inscrição
 ![Alt text](/course-signup-api/img/inscreicao.JPG?raw=true "inscricao")
-A inscrição inicia no evento pelo evento "Processar Fila" onde é recuperado do kinessis os dados "por curso". Com cada curso contem uma quantidade finita de alunos possiveis o mesmo pega esta quantidade por ordem de inscrição e gera o comando "Registrar". Os demais alunos entram no expurgo (não detalhado no fluxo)
+A inscrição inicia pelo evento "Processar Fila" onde é recuperado do kinessis os alunos "por curso". Como cada curso contem uma quantidade finita de alunos possiveis o mesmo pega esta quantidade por ordem de inscrição e gera o comando "Registrar". Os demais alunos entram no expurgo (não detalhado no fluxo) sendo notificados de "Turma Cheia". Este conceito é interessante se implementar outro midleware que valide regras adcionais "não online" de forma que no momneto não se pode dizer que a turam fpoi fechada ou não. Este conceito esta fora do escopo.
 
 ## Processamento
 ![Alt text](/course-signup-api/img/processamento-filas.JPG?raw=true "processamento")
-O processoamento será executado em thread "paralelizada" via disparo do evento "Registro) onde o mesmo efetua:
+O processamento será executado em thread "paralelizada" via disparo do evento "Registro) onde o mesmo efetua:
 - Inscrição do aluno na turma
 - Geração das estatisticas
 - Disparo do comando "Notificar" aluno
