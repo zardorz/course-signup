@@ -23,7 +23,7 @@ O presente modelo não contempla demais regras como idade minima, pagamento de t
 # EndPoins
 ## Registro
 ![Alt text](/course-signup-api/img/endpoints.JPG?raw=true "endpoints")
-O EndPoint (EP) de registro efetua o agendamento da solicitação do aluno em um stream kinesis (mensageria). Neste conceito utilizando o elasticseach para gerenciar a carga cfe o número de requisições aumente de forma exponencial.
+O EndPoint (EP) de registro efetua o agendamento da solicitação do aluno em um stream kinesis (mensageria). Neste conceito utilizando o elasticsearch para gerenciar a carga cfe o número de requisições aumente de forma exponencial.
 
 A API tem como entradas:
 - Nome
@@ -33,7 +33,7 @@ A API tem como entradas:
 
 Após ser incluido na fila é enviado um comando para que o serviço de notificação envie um email ao aluno informando sobre os proximos passos. Estes dados tambem pode ser exibidos no front (fora do escopo atual).
 
-##Consulta
+## Consulta
 ![Alt text](/course-signup-api/img/consultas.JPG?raw=true "consultas")
 
 O EP de consulta retorna as metricas de alunos  (idade minima, idade máxima, média de idades) por cuso e campus. Serão implementados no futuro outros endpoints como:
@@ -42,19 +42,20 @@ O EP de consulta retorna as metricas de alunos  (idade minima, idade máxima, m�
 - Data da incsrição
 - Etc
 
-Este retorno pode ser feito pro "Dynamic Querys" (DQ), GraphQL ou DTO's. Nesta versão será implementado o modelo de DQ.
+Este retorno pode ser feito por "Dynamic Querys" (DQ), GraphQL ou DTO's. Nesta versão será implementado o modelo de DQ.
 
 # Processos
-## Inscrição
-![Alt text](/course-signup-api/img/inscreicao.JPG?raw=true "inscricao")
-A inscrição inicia pelo evento "Processar Fila" onde é recuperado do kinessis os alunos "por curso". Como cada curso contem uma quantidade finita de alunos possiveis o mesmo pega esta quantidade por ordem de inscrição e gera o comando "Registrar". Os demais alunos entram no expurgo (não detalhado no fluxo) sendo notificados de "Turma Cheia". Este conceito é interessante se implementar outro midleware que valide regras adcionais "não online" de forma que no momneto não se pode dizer que a turam fpoi fechada ou não. Este conceito esta fora do escopo.
 
 ## Processamento
 ![Alt text](/course-signup-api/img/processamento-filas.JPG?raw=true "processamento")
-O processamento será executado em thread "paralelizada" via disparo do evento "Registro) onde o mesmo efetua:
+O processamento será executado em thread "paralelizada" via disparo do evento "Processar Fila" onde o mesmo efetua:
 - Inscrição do aluno na turma
 - Geração das estatisticas
-- Disparo do comando "Notificar" aluno
+- Disparo do comando "Registrar" aluno
+
+## Inscrição
+![Alt text](/course-signup-api/img/inscreicao.JPG?raw=true "inscricao")
+A inscrição inicia pelo evento "Registro" onde é recuperado do kinessis os alunos "por curso". Como cada curso contem uma quantidade finita de alunos possiveis o mesmo pega esta quantidade por ordem de inscrição e gera o comando "Registrar". Os demais alunos entram no expurgo (não detalhado no fluxo) sendo notificados de "Turma Cheia". Este conceito é interessante se implementar outro midleware que valide regras adcionais "não online" de forma que no momneto não se pode dizer que a turma foi fechada ou não. Este conceito esta fora do escopo.
 
 ## Notificação
 ![Alt text](/course-signup-api/img/notificacao.JPG?raw=true "notificacao")
