@@ -8,9 +8,7 @@ O objetivo principal é efetuar o registro de alunos em cursos utilizando o mode
 
 Para este projeto está sendo considerado o uso do Kinesis para mensageria, CQRS para o disparos dos processos assincronos, e o fluxo de notificação via "Fire e Forget" onde não está sendo analizados o retorno do servidor SMTP (envio, validade do email, etc)
 
-A quantidade de cursos, alunos e a relação dos cursos estão armazaenados na tabela cfg-cursos do BD. Como a inscrição é feita de forma paralela via Threads o serviço de Sign-in controla a quantidade de alunos. 
-
-O conceito atual considera uma thread por curso processando todos os alunos daquele curso. Outra opção seria paralelizar a inscrição, independente do curso, onde o controle ficaria na "Service-Filas" que recupera a quantidade correta de alunos da turma do kinesis (por ordem de data de solicitação por exemplo) deprezandos e notificando os demais.
+A quantidade de cursos, alunos e a relação dos cursos estão armazenados na tabela cfg-cursos do BD. Como a inscrição é feita de forma paralela via Threads o serviço de Sign-in (fluxo de inscrição) controla a quantidade de alunos via tabela de estatisticas.
 
 Sempre que um aluno é inscrito, um evento é gerado (Services ORM) de forma a gravar um totalizador de registros. Este totalizador contempla:
 - Quantidade de alunos do curso
@@ -19,6 +17,7 @@ Sempre que um aluno é inscrito, um evento é gerado (Services ORM) de forma a g
 
 O presente modelo não contempla demais regras como idade minima, pagamento de taxas, entrega de documentos, email válido entre outras.
 
+A leitura da tabela de estatisticas seria um serviço Singleton de forma a garantir a não colizão dos dados (inscrever mais alunos que a turma permite). Outra forma é deixar o BD gerenciar a qtd de inscritos (tipo SQL Server via Trigguer/Procedure). Ou usar uma logica FIFO para gerencia a assertividade de alunos na turma. Este algoritmo está fora do escopo no momento.
 
 # EndPoins
 ## Registro
@@ -39,7 +38,7 @@ Após ser incluido na fila é enviado um comando para que o serviço de notifica
 O EP de consulta retorna as metricas de alunos  (idade minima, idade máxima, média de idades) por cuso e campus. Serão implementados no futuro outros endpoints como:
 - Relação de alunos por curso
 - Quantidade de alunos inscritos
-- Data da incsrição
+- Data da inscrição
 - Etc
 
 Este retorno pode ser feito por "Dynamic Querys" (DQ), GraphQL ou DTO's. Nesta versão será implementado o modelo de DQ.
@@ -48,18 +47,20 @@ Este retorno pode ser feito por "Dynamic Querys" (DQ), GraphQL ou DTO's. Nesta v
 
 ## Processamento
 ![Alt text](/course-signup-api/img/processamento-filas.JPG?raw=true "processamento")
-O processamento será executado em thread "paralelizada" via disparo do evento "Processar Fila" onde o mesmo efetua:
+O processamento é iniciado pelo evento "Processar Fila" onde o mesmo efetua:
 - Inscrição do aluno na turma
 - Geração das estatisticas
 - Disparo do comando "Registrar" aluno
 
+O correto deste evento é ser gerado por um scheduler, para garantir que todos os registros da fila seja processados, ou por um serviço independente (robo/loop) que fica monitorando a existencia de registros na fila.
+
 ## Inscrição
 ![Alt text](/course-signup-api/img/inscreicao.JPG?raw=true "inscricao")
-A inscrição inicia pelo evento "Registro" onde é recuperado do kinessis os alunos "por curso". Como cada curso contem uma quantidade finita de alunos possiveis o mesmo pega esta quantidade por ordem de inscrição e gera o comando "Registrar". Os demais alunos entram no expurgo (não detalhado no fluxo) sendo notificados de "Turma Cheia". Este conceito é interessante se implementar outro midleware que valide regras adcionais "não online" de forma que no momneto não se pode dizer que a turma foi fechada ou não. Este conceito esta fora do escopo.
+A inscrição inicia pelo evento "Registro" onde é recuperado do kinessis os alunos. Este serviço verifica a qtd de alunos na turma, via tabela de estatisticas e gera o comando "Registrar". Se a turma estiver "cheia" os alunos entram no expurgo (não detalhado no fluxo) sendo notificados da "Turma Cheia". Este conceito é interessante se implementarmos outro midleware que valide regras adcionais "não online" de forma que no momento não se possível garantir que a turma foi fechada ou não. Este midleware esta fora do escopo.
 
 ## Notificação
 ![Alt text](/course-signup-api/img/notificacao.JPG?raw=true "notificacao")
-A notificação "inicia" pelo evento "notificação" sendo rsponsavel pelo envio de emails aos alunos. de forma paralelizada (thread). São enviados 3 tipos de email por estre processo:
+A notificação "inicia" pelo evento "notificação" sendo responsavel pelo envio de emails aos alunos. de forma paralelizada (thread). São enviados 3 tipos de email por este processo:
 - Notificação do agendamento
 - Aviso de inscrição efetuada com sucesso
 - Aviso de inscrição declinada por turma cheia
